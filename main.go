@@ -1,221 +1,141 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log"
 	"net/http"
-	"strconv"
-	"sync"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/julienschmidt/httprouter"
-)
+	"naevis/config"
+	"naevis/discord"
+	"naevis/infra"
+	"naevis/infra/mq/bootstrap"
+	"naevis/mechat"
+	"naevis/middleware"
+	"naevis/newchat"
+	"naevis/routes"
 
-/*
-	Simple REST API with:
-	- GET
-	- POST
-	- PUT
-	- DELETE
-	- JSON responses
-	- CORS support
-	- Basic in-memory storage
-*/
-
-type User struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-var (
-	users  = map[int]User{}
-	nextID = 1
-	mu     sync.Mutex
+	"github.com/rs/cors"
 )
 
 func main() {
-	router := httprouter.New()
 
-	// Routes
-	router.GET("/", Home)
+	cfg := config.InitConfig()
 
-	router.GET("/api/users", GetUsers)
-	router.GET("/api/users/:id", GetUser)
-
-	router.POST("/api/users", CreateUser)
-
-	router.PUT("/api/users/:id", UpdateUser)
-
-	router.DELETE("/api/users/:id", DeleteUser)
-
-	// Wrap router with CORS middleware
-	handler := corsMiddleware(router)
-
-	log.Println("Server running on :4000")
-	log.Fatal(http.ListenAndServe(":4000", handler))
-}
-
-/*
-	Handlers
-*/
-
-func Home(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "API is running",
-	})
-}
-
-func GetUsers(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	var result []User
-
-	for _, user := range users {
-		result = append(result, user)
-	}
-
-	respondJSON(w, http.StatusOK, result)
-}
-
-func GetUser(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	id, err := strconv.Atoi(ps.ByName("id"))
+	app, err := infra.New(cfg)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid user id")
-		return
+		log.Fatalf("Failed to initialize infrastructure: %v", err)
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
+	subscriberCtx := context.Background()
 
-	user, exists := users[id]
-	if !exists {
-		respondError(w, http.StatusNotFound, "user not found")
-		return
+	if err := bootstrap.RegisterSubscribers(
+		subscriberCtx,
+		app,
+	); err != nil {
+		log.Fatalf("subscriber bootstrap failed: %v", err)
 	}
 
-	respondJSON(w, http.StatusOK, user)
-}
+	// =====================
+	// Rate limiter
+	// =====================
+	rateLimiter := middleware.NewRateLimiter(
+		1,
+		12,
+		10*time.Minute,
+		10000,
+	)
 
-func CreateUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var input struct {
-		Name string `json:"name"`
+	// =====================
+	// Chat hub
+	// =====================
+	hub := newchat.NewHub()
+	go hub.Run()
+
+	mehub := mechat.NewHub()
+
+	hubs := discord.NewHubManager(8)
+
+	go discord.StartConsumer(
+		context.Background(),
+		app.MQ,
+		hubs.ForRoom("*"),
+		"chat.*.events",
+	)
+	// =====================
+	// Router & middleware
+	// =====================
+	router := routes.SetupRouter(app, rateLimiter)
+
+	routes.AddDiscordRoutes(router, hubs, app)
+	routes.AddNewChatRoutes(router, hub, app, rateLimiter)
+	routes.AddMeChatRoutes(router, mehub, app, rateLimiter)
+	routes.AddStaticRoutes(router)
+
+	innerHandler := middleware.LoggingMiddleware(
+		middleware.SecurityHeaders(router),
+	)
+
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   cfg.AllowedOrigins,
+		AllowedMethods:   []string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "Idempotency-Key", "X-Requested-With"},
+		AllowCredentials: true,
+	}).Handler(innerHandler)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", corsHandler)
+
+	// =====================
+	// HTTP server
+	// =====================
+	server := &http.Server{
+		Addr:              cfg.HTTPPort,
+		Handler:           mux,
+		ReadTimeout:       7 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid json body")
-		return
-	}
+	// go func() {
+	// 	log.Printf("API server listening on %s", cfg.HTTPPort)
+	// 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	// 		log.Fatalf("ListenAndServe error: %v", err)
+	// 	}
+	// }()
 
-	if input.Name == "" {
-		respondError(w, http.StatusBadRequest, "name is required")
-		return
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	user := User{
-		ID:   nextID,
-		Name: input.Name,
-	}
-
-	users[nextID] = user
-	nextID++
-
-	respondJSON(w, http.StatusCreated, user)
-}
-
-func UpdateUser(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	id, err := strconv.Atoi(ps.ByName("id"))
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid user id")
-		return
-	}
-
-	var input struct {
-		Name string `json:"name"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid json body")
-		return
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	user, exists := users[id]
-	if !exists {
-		respondError(w, http.StatusNotFound, "user not found")
-		return
-	}
-
-	if input.Name != "" {
-		user.Name = input.Name
-	}
-
-	users[id] = user
-
-	respondJSON(w, http.StatusOK, user)
-}
-
-func DeleteUser(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	id, err := strconv.Atoi(ps.ByName("id"))
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid user id")
-		return
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	_, exists := users[id]
-	if !exists {
-		respondError(w, http.StatusNotFound, "user not found")
-		return
-	}
-
-	delete(users, id)
-
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "user deleted",
-	})
-}
-
-/*
-	Response Helpers
-*/
-
-func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	json.NewEncoder(w).Encode(payload)
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{
-		"error": message,
-	})
-}
-
-/*
-	CORS Middleware
-*/
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Allow frontend access
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		// Handle preflight requests
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
+	go func() {
+		log.Printf("API server listening on %s", cfg.HTTPPort)
+		if err := server.ListenAndServeTLS("cert.pem", "key.pem"); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe error: %v", err)
 		}
+	}()
 
-		next.ServeHTTP(w, r)
-	})
+	// =====================
+	// Graceful shutdown
+	// =====================
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	<-sigCh
+
+	log.Println("Shutting down server...")
+
+	// Stop rate limiter
+	rateLimiter.Stop()
+
+	// Stop hubs
+	hub.Stop()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Graceful shutdown failed: %v", err)
+	}
+
+	log.Println("Server stopped successfully")
 }

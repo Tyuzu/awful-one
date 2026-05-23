@@ -1,0 +1,56 @@
+package routes
+
+import (
+	"naevis/infra"
+	"naevis/middleware"
+
+	"github.com/julienschmidt/httprouter"
+)
+
+func RoutesWrapper(router *httprouter.Router, app *infra.Deps, rateLimiter *middleware.RateLimiter) {
+	AddActivityRoutes(router, app, rateLimiter)
+	AddAdminRoutes(router, app, rateLimiter)
+	AddAdsRoutes(router, app, rateLimiter)
+	AddAnalyticsRoutes(router, app, rateLimiter)
+	AddArtistRoutes(router, app, rateLimiter)
+	AddBaitoRoutes(router, app, rateLimiter)
+	AddBeatRoutes(router, app, rateLimiter)
+	AddBookingRoutes(router, app, rateLimiter)
+	AddAuthRoutes(router, app, rateLimiter)
+	AddCartRoutes(router, app, rateLimiter)
+	AddCommentsRoutes(router, app, rateLimiter)
+	// AddDiscordRoutes(router, app, rateLimiter)
+	AddEventsRoutes(router, app, rateLimiter)
+	AddFanmadeRoutes(router, app, rateLimiter)
+	AddFiledropRoutes(router, app, rateLimiter)
+	RegisterFarmRoutes(router, app, rateLimiter)
+	AddFeedRoutes(router, app, rateLimiter)
+	AddHomeRoutes(router, app, rateLimiter)
+	AddHashtagRoutes(router, app, rateLimiter)
+	AddItineraryRoutes(router, app, rateLimiter)
+	AddJobRoutes(router, app, rateLimiter)
+	AddMapRoutes(router, app, rateLimiter)
+	AddMediaRoutes(router, app, rateLimiter)
+	AddMerchRoutes(router, app, rateLimiter)
+	AddMusicRoutes(router, app, rateLimiter)
+	AddNoticesRoutes(router, app, rateLimiter)
+	AddNotificationsRoutes(router, app, rateLimiter)
+	AddPayRoutes(router, app, rateLimiter)
+	AddPlaceRoutes(router, app, rateLimiter)
+	AddPlaceTabRoutes(router, app, rateLimiter)
+	AddPostRoutes(router, app, rateLimiter)
+	AddProductRoutes(router, app, rateLimiter)
+	AddProfileRoutes(router, app, rateLimiter)
+	AddRecipeRoutes(router, app, rateLimiter)
+	AddReportRoutes(router, app, rateLimiter)
+	AddReviewsRoutes(router, app, rateLimiter)
+	AddSearchRoutes(router, app, rateLimiter)
+	AddSettingsRoutes(router, app, rateLimiter)
+	AddStripeRoutes(router, app, rateLimiter)
+	AddSuggestionsRoutes(router, app, rateLimiter)
+	AddTicketRoutes(router, app, rateLimiter)
+	AddUtilityRoutes(router, app, rateLimiter)
+	AddVendorRoutes(router, app, rateLimiter)
+	AddVliveRoutes(router, app, rateLimiter)
+	AddMiscRoutes(router, app, rateLimiter)
+}
