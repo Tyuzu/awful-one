@@ -17,7 +17,7 @@ type Ingredient struct {
 
 type Recipe struct {
 	RecipeId    string       `bson:"recipeid,omitempty" json:"recipeid"`
-	UserID      string       `json:"userId" bson:"userId"`
+	UserID      string       `json:"userid" bson:"userid"`
 	Title       string       `json:"title" bson:"title"`
 	Description string       `json:"description" bson:"description"`
 	CookTime    string       `json:"cookTime" bson:"cookTime"`       // replaced PrepTime

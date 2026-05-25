@@ -13,7 +13,6 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // GetPreferences gets notification preferences for a user
@@ -29,14 +28,14 @@ func GetPreferences(app *infra.Deps) httprouter.Handle {
 			return
 		}
 
-		filter := bson.M{"userId": userID}
+		filter := bson.M{"userid": userID}
 		var preference models.NotificationPreference
 
 		err := app.DB.FindOne(ctx, notificationsPreferencesCollection, filter, &preference)
 		if err != nil {
 			// Return default preferences if not found
 			preference = models.NotificationPreference{
-				ID:              primitive.NewObjectID().Hex(),
+				Notifid:         utils.GenerateRandomDigitString(15),
 				UserID:          userID,
 				MentionsEnabled: true,
 				FollowsEnabled:  true,
@@ -112,7 +111,7 @@ func UpdatePreferences(app *infra.Deps) httprouter.Handle {
 			}
 		}
 
-		filter := bson.M{"userId": userID}
+		filter := bson.M{"userid": userID}
 		update := bson.M{
 			"$set": updates,
 		}

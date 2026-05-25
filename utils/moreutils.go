@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/bson"
 
 	"naevis/globals"
 	"naevis/models"
@@ -129,20 +128,6 @@ func RegexFilter(field, value string) map[string]any {
 			"$options": "i",
 		},
 	}
-}
-
-// ParseSort returns a sort map usable in db.FindManyOptions
-func ParseSort(
-	param string,
-	defaultSort bson.D,
-	sortMap map[string]bson.D,
-) bson.D {
-
-	if s, ok := sortMap[param]; ok {
-		return s
-	}
-
-	return defaultSort
 }
 
 // ParsePagination extracts skip and limit values safely

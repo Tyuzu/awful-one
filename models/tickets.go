@@ -7,7 +7,7 @@ import (
 type RefundRequest struct {
 	EventID     string     `bson:"eventid" json:"eventID"`
 	TicketID    string     `bson:"ticketid" json:"ticketID"`
-	UserID      string     `bson:"userid" json:"userID"`
+	UserID      string     `bson:"userid" json:"userid"`
 	UniqueCode  string     `bson:"uniquecode" json:"uniqueCode"`
 	RequestDate time.Time  `bson:"requestdate" json:"requestDate"`
 	Status      string     `bson:"status" json:"status"` // pending, approved, rejected, refunded

@@ -8,7 +8,7 @@ type Question struct {
 	Description string    `json:"description"`
 	Tags        []string  `json:"tags"`
 	User        string    `json:"user"`
-	UserId      string    `json:"userId"`
+	UserId      string    `json:"userid"`
 	Timestamp   time.Time `json:"timestamp"`
 }
 

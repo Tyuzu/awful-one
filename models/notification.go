@@ -7,7 +7,7 @@ import (
 // Notification represents a user-level notification
 type Notification struct {
 	ID          string    `bson:"_id,omitempty" json:"id"`
-	UserID      string    `bson:"userId" json:"userId"`
+	UserID      string    `bson:"userid" json:"userid"`
 	Type        string    `bson:"type" json:"type"`               // notification type: mention, follow, comment, like, etc.
 	Title       string    `bson:"title" json:"title"`             // notification title
 	Message     string    `bson:"message" json:"message"`         // notification message/content
@@ -21,8 +21,8 @@ type Notification struct {
 
 // NotificationPreference stores notification settings per user
 type NotificationPreference struct {
-	ID              string    `bson:"_id,omitempty" json:"id"`
-	UserID          string    `bson:"userId" json:"userId"`
+	Notifid         string    `bson:"notifid,omitempty" json:"notifid"`
+	UserID          string    `bson:"userid" json:"userid"`
 	MentionsEnabled bool      `bson:"mentionsEnabled" json:"mentionsEnabled"`
 	FollowsEnabled  bool      `bson:"followsEnabled" json:"followsEnabled"`
 	CommentsEnabled bool      `bson:"commentsEnabled" json:"commentsEnabled"`

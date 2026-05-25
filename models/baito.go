@@ -39,7 +39,7 @@ type BaitoApplication struct {
 }
 
 type BaitoWorker struct {
-	UserID       string   `json:"userId" bson:"userId"`
+	UserID       string   `json:"userid" bson:"userid"`
 	BaitoUserID  string   `json:"baitoUserId" bson:"baitoUserId"`
 	Name         string   `json:"name" bson:"name"`
 	Age          int      `json:"age" bson:"age"`

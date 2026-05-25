@@ -23,7 +23,7 @@ func CreateNotification(app *infra.Deps) httprouter.Handle {
 		defer cancel()
 
 		var body struct {
-			UserID      string `json:"userId"`
+			UserID      string `json:"userid"`
 			Type        string `json:"type"`
 			Title       string `json:"title"`
 			Message     string `json:"message"`
@@ -78,7 +78,7 @@ func BulkCreateNotifications(app *infra.Deps) httprouter.Handle {
 
 		var body struct {
 			Notifications []struct {
-				UserID      string `json:"userId"`
+				UserID      string `json:"userid"`
 				Type        string `json:"type"`
 				Title       string `json:"title"`
 				Message     string `json:"message"`
@@ -142,7 +142,7 @@ func GetUserNotifications(app *infra.Deps) httprouter.Handle {
 		// Get unread only query param
 		unreadOnly := r.URL.Query().Get("unread") == "true"
 
-		filter := bson.M{"userId": userID}
+		filter := bson.M{"userid": userID}
 		if unreadOnly {
 			filter["isRead"] = false
 		}
@@ -175,7 +175,7 @@ func GetUnreadCount(app *infra.Deps) httprouter.Handle {
 			return
 		}
 
-		filter := bson.M{"userId": userID, "isRead": false}
+		filter := bson.M{"userid": userID, "isRead": false}
 		count, err := app.DB.CountDocuments(ctx, notificationsCollection, filter)
 		if err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to count notifications")
@@ -232,7 +232,7 @@ func MarkAllAsRead(app *infra.Deps) httprouter.Handle {
 			return
 		}
 
-		filter := bson.M{"userId": userID, "isRead": false}
+		filter := bson.M{"userid": userID, "isRead": false}
 		update := bson.M{
 			"$set": bson.M{
 				"isRead":    true,
@@ -288,7 +288,7 @@ func ClearAllNotifications(app *infra.Deps) httprouter.Handle {
 			return
 		}
 
-		filter := bson.M{"userId": userID}
+		filter := bson.M{"userid": userID}
 		if err := app.DB.DeleteMany(ctx, notificationsCollection, filter); err != nil {
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to delete notifications")
 			return

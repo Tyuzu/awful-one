@@ -19,7 +19,7 @@ type Setting struct {
 }
 
 //	type UserSettings struct {
-//		UserID   string    `bson:"userID" json:"userID"`
+//		UserID   string    `bson:"userid" json:"userid"`
 //		Settings []Setting `bson:"settings" json:"settings"`
 //	}
 

@@ -37,7 +37,7 @@ type Booking struct {
 	PricePaid  float64 `json:"pricePaid,omitempty" bson:"pricePaid,omitempty"`
 	EntityType string  `json:"entityType" bson:"entityType"`
 	EntityId   string  `json:"entityId" bson:"entityId"`
-	UserId     string  `json:"userId" bson:"userId"`
+	UserId     string  `json:"userid" bson:"userid"`
 	Date       string  `json:"date" bson:"date"`
 	Start      string  `json:"start" bson:"start"`
 	End        string  `json:"end,omitempty" bson:"end,omitempty"`

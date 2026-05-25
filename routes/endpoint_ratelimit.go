@@ -242,7 +242,7 @@ func min(a, b float64) float64 {
 }
 
 func extractUserID(r *http.Request) string {
-	if userID, ok := r.Context().Value("userID").(string); ok {
+	if userID, ok := r.Context().Value("userid").(string); ok {
 		return userID
 	}
 	return ""

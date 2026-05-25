@@ -5,7 +5,7 @@ import "time"
 // CartItem represents a single item in the user's cart.
 type CartItem struct {
 	CartItemID string    `json:"cartItemId" bson:"_id,omitempty"`
-	UserID     string    `json:"userId" bson:"userId"`
+	UserID     string    `json:"userid" bson:"userid"`
 	Category   string    `json:"category" bson:"category"`
 	ItemID     string    `json:"itemId" bson:"itemId"`
 	ItemName   string    `json:"itemName" bson:"itemName"`
@@ -21,7 +21,7 @@ type CartItem struct {
 
 // CheckoutSession represents a pre-order session, grouped by category.
 type CheckoutSession struct {
-	UserID         string                `json:"userId" bson:"userId"`
+	UserID         string                `json:"userid" bson:"userid"`
 	Items          map[string][]CartItem `json:"items" bson:"items"`
 	Address        string                `json:"address" bson:"address"`
 	Total          int64                 `json:"total" bson:"total"`       // CRITICAL FIX: Changed from float64 to int64 (stored in paise)
@@ -37,7 +37,7 @@ type CheckoutSession struct {
 // Order represents a finalized order.
 type Order struct {
 	OrderID       string                `json:"orderId" bson:"orderId"`
-	UserID        string                `json:"userId" bson:"userId"`
+	UserID        string                `json:"userid" bson:"userid"`
 	Items         map[string][]CartItem `json:"items" bson:"items"` // grouped by category
 	Address       string                `json:"address" bson:"address"`
 	PaymentMethod string                `json:"paymentMethod" bson:"paymentMethod"`

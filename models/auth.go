@@ -5,7 +5,7 @@ import "github.com/golang-jwt/jwt/v5"
 // Claims defines the JWT claims structure
 type Claims struct {
 	Username string   `json:"username"`
-	UserID   string   `json:"userId"`
+	UserID   string   `json:"userid"`
 	Role     []string `json:"role"`
 	jwt.RegisteredClaims
 }
