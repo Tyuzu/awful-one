@@ -2,8 +2,6 @@ package models
 
 import (
 	"time"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Response struct {
@@ -113,14 +111,6 @@ type UserSuggest struct {
 	Bio         string `json:"bio,omitempty" bson:"bio,omitempty"`
 }
 
-type Suggestion struct {
-	ID          primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Type        string             `json:"type" bson:"type"` // e.g., "place" or "event"
-	Title       string             `json:"title" bson:"title"`
-	Description string             `json:"description,omitempty" bson:"description,omitempty"`
-	Name        string             `json:"name"`
-}
-
 type Review struct {
 	ReviewID string `json:"reviewid" bson:"reviewid"`
 	UserID   string `json:"userid" bson:"userid"`
@@ -169,18 +159,3 @@ const (
 	MediaTypeVideo    = "video"
 	MediaTypePhoto360 = "photo360"
 )
-
-type Promotion struct {
-	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	Title       string             `json:"title" bson:"title"`
-	Description string             `json:"description" bson:"description"`
-	ExpiryDate  time.Time          `json:"expiry_date" bson:"expiry_date"`
-}
-
-// Owner Management Handlers
-type Owner struct {
-	ID       primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	Name     string             `json:"name" bson:"name"`
-	Email    string             `json:"email" bson:"email"`
-	Password string             `json:"password" bson:"password"`
-}

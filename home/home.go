@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
-	"go.mongodb.org/mongo-driver/bson"
 
 	"naevis/infra"
 	"naevis/infra/db"
@@ -26,10 +25,10 @@ type HomeCard struct {
 }
 
 // categoryProjection returns collection name and projection function
-func categoryProjection(category string) (string, func(bson.M) HomeCard) {
+func categoryProjection(category string) (string, func(map[string]any) HomeCard) {
 	switch category {
 	case "Places":
-		return "places", func(doc bson.M) HomeCard {
+		return "places", func(doc map[string]any) HomeCard {
 			id, _ := doc["placeid"].(string)
 			banner, _ := doc["banner"].(string)
 			title, _ := doc["name"].(string)
@@ -44,7 +43,7 @@ func categoryProjection(category string) (string, func(bson.M) HomeCard) {
 		}
 
 	case "Events":
-		return "events", func(doc bson.M) HomeCard {
+		return "events", func(doc map[string]any) HomeCard {
 			id, _ := doc["eventid"].(string)
 			banner, _ := doc["banner"].(string)
 			title, _ := doc["title"].(string)
@@ -59,7 +58,7 @@ func categoryProjection(category string) (string, func(bson.M) HomeCard) {
 		}
 
 	case "Baitos":
-		return "baitos", func(doc bson.M) HomeCard {
+		return "baitos", func(doc map[string]any) HomeCard {
 			id, _ := doc["baitoid"].(string)
 			banner, _ := doc["banner"].(string)
 			title, _ := doc["title"].(string)
@@ -74,11 +73,11 @@ func categoryProjection(category string) (string, func(bson.M) HomeCard) {
 		}
 
 	case "Products":
-		return "products", func(doc bson.M) HomeCard {
+		return "products", func(doc map[string]any) HomeCard {
 			id, _ := doc["productid"].(string)
 
 			banner := ""
-			if arr, ok := doc["imageUrls"].(bson.A); ok && len(arr) > 0 {
+			if arr, ok := doc["imageUrls"].([]any); ok && len(arr) > 0 {
 				if s, ok := arr[0].(string); ok {
 					banner = s
 				}
@@ -96,7 +95,7 @@ func categoryProjection(category string) (string, func(bson.M) HomeCard) {
 		}
 
 	case "Posts":
-		return "posts", func(doc bson.M) HomeCard {
+		return "posts", func(doc map[string]any) HomeCard {
 			id, _ := doc["postid"].(string)
 			banner, _ := doc["thumb"].(string)
 			title, _ := doc["title"].(string)
@@ -140,11 +139,13 @@ func HomeCardsHandler(app *infra.Deps) httprouter.Handle {
 		opts := db.FindManyOptions{
 			Skip:  skip,
 			Limit: limit,
-			Sort:  bson.D{{Key: "createdAt", Value: -1}},
+			Sort: map[string]any{
+				"createdAt": -1,
+			},
 		}
 
-		var docs []bson.M
-		if err := app.DB.FindManyWithOptions(ctx, collection, bson.M{}, opts, &docs); err != nil {
+		var docs []map[string]any
+		if err := app.DB.FindManyWithOptions(ctx, collection, map[string]any{}, opts, &docs); err != nil {
 			log.Println("Find error:", err, "req_id:", reqID)
 			w.Header().Set("X-Error-Request-Id", reqID)
 			utils.RespondWithError(w, http.StatusInternalServerError, "Failed to fetch home cards")

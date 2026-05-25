@@ -1,10 +1,6 @@
 package middleware
 
-import (
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-)
+import "time"
 
 // SoftDeleteFields adds soft delete fields to records
 type SoftDeleteFields struct {
@@ -14,10 +10,11 @@ type SoftDeleteFields struct {
 }
 
 // MarkDeleted creates update filter for soft deletion
-func MarkDeleted(userID string, reason string) bson.M {
+func MarkDeleted(userID string, reason string) map[string]any {
 	now := time.Now()
-	return bson.M{
-		"$set": bson.M{
+
+	return map[string]any{
+		"$set": map[string]any{
 			"deletedAt":    now,
 			"deletedBy":    userID,
 			"deleteReason": reason,
@@ -26,20 +23,22 @@ func MarkDeleted(userID string, reason string) bson.M {
 }
 
 // ExcludeDeleted creates filter to exclude soft-deleted records
-func ExcludeDeleted() bson.M {
-	return bson.M{
+func ExcludeDeleted() map[string]any {
+	return map[string]any{
 		"deletedAt": nil,
 	}
 }
 
 // ExcludeDeleted2 creates filter to exclude soft-deleted records (alt format)
-func ExcludeDeletedAlt() bson.M {
-	return bson.M{
-		"deletedAt": bson.M{"$exists": false},
+func ExcludeDeletedAlt() map[string]any {
+	return map[string]any{
+		"deletedAt": map[string]any{
+			"$exists": false,
+		},
 	}
 }
 
 // PermanentDelete creates hard delete (use only for GDPR/compliance)
-func PermanentDelete() bson.M {
-	return bson.M{}
+func PermanentDelete() map[string]any {
+	return map[string]any{}
 }

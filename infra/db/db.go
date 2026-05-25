@@ -2,14 +2,12 @@ package db
 
 import (
 	"context"
-
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type FindManyOptions struct {
 	Limit      int
 	Skip       int
-	Sort       bson.D
+	Sort       map[string]any
 	Projection []string
 }
 

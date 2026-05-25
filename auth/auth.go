@@ -15,8 +15,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/julienschmidt/httprouter"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -77,7 +75,11 @@ func Register(app *infra.Deps) httprouter.Handle {
 		}
 
 		if err := app.DB.Insert(ctx, UsersCollection, user); err != nil {
-			if mongo.IsDuplicateKeyError(err) {
+
+			// Generic duplicate check
+			if strings.Contains(strings.ToLower(err.Error()), "duplicate") ||
+				strings.Contains(strings.ToLower(err.Error()), "exists") {
+
 				utils.RespondWithError(w, http.StatusConflict, "User already exists")
 				return
 			}
@@ -136,7 +138,9 @@ func Login(app *infra.Deps) httprouter.Handle {
 		if err := app.DB.FindOne(
 			ctx,
 			UsersCollection,
-			bson.M{"username": creds.Username},
+			map[string]any{
+				"username": creds.Username,
+			},
 			&user,
 		); err != nil {
 
@@ -206,17 +210,17 @@ func Login(app *infra.Deps) httprouter.Handle {
 		err = app.DB.Update(
 			ctx,
 			UsersCollection,
-			bson.M{"userid": user.UserID},
-			bson.M{
-				"$set": bson.M{
-					"refresh_token":  hashRefreshToken(refreshToken),
-					"refresh_expiry": time.Now().Add(RefreshTokenTTL),
-					"refresh_ua":     uaHash(r),
-					"refresh_ip":     ipPrefix(ip),
-					"last_login":     time.Now(),
-					"online":         true,
-					"updated_at":     time.Now(),
-				},
+			map[string]any{
+				"userid": user.UserID,
+			},
+			map[string]any{
+				"refresh_token":  hashRefreshToken(refreshToken),
+				"refresh_expiry": time.Now().Add(RefreshTokenTTL),
+				"refresh_ua":     uaHash(r),
+				"refresh_ip":     ipPrefix(ip),
+				"last_login":     time.Now(),
+				"online":         true,
+				"updated_at":     time.Now(),
 			},
 		)
 		if err != nil {
@@ -258,29 +262,29 @@ func LogoutUser(app *infra.Deps) httprouter.Handle {
 			hashed := hashRefreshToken(cookie.Value)
 
 			var user models.User
+
 			_ = app.DB.FindOne(
 				ctx,
 				UsersCollection,
-				bson.M{"refresh_token": hashed},
+				map[string]any{
+					"refresh_token": hashed,
+				},
 				&user,
 			)
 
 			_ = app.DB.Update(
 				ctx,
 				UsersCollection,
-				bson.M{"refresh_token": hashed},
-				bson.M{
-					"$unset": bson.M{
-						"refresh_token":  "",
-						"refresh_expiry": "",
-					},
-					"$set": bson.M{
-						"online":     false,
-						"updated_at": time.Now(),
-					},
+				map[string]any{
+					"refresh_token": hashed,
+				},
+				map[string]any{
+					"refresh_token":  nil,
+					"refresh_expiry": nil,
+					"online":         false,
+					"updated_at":     time.Now(),
 				},
 			)
-
 		}
 
 		clearRefreshCookie(w)
@@ -319,19 +323,17 @@ func LogoutAllSessions(app *infra.Deps) httprouter.Handle {
 		err = app.DB.Update(
 			ctx,
 			UsersCollection,
-			bson.M{"userid": claims.UserID},
-			bson.M{
-				"$unset": bson.M{
-					"refresh_token":  "",
-					"refresh_prev":   "",
-					"refresh_expiry": "",
-					"refresh_ua":     "",
-					"refresh_ip":     "",
-				},
-				"$set": bson.M{
-					"online":     false,
-					"updated_at": time.Now(),
-				},
+			map[string]any{
+				"userid": claims.UserID,
+			},
+			map[string]any{
+				"refresh_token":  nil,
+				"refresh_prev":   nil,
+				"refresh_expiry": nil,
+				"refresh_ua":     nil,
+				"refresh_ip":     nil,
+				"online":         false,
+				"updated_at":     time.Now(),
 			},
 		)
 		if err != nil {

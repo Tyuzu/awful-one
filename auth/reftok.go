@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/julienschmidt/httprouter"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 /* ============================================================
@@ -72,11 +71,17 @@ func RefreshTokenFromCookie(ctx context.Context, rawToken string, r *http.Reques
 	// Find valid refresh session
 	// -----------------------
 	var user models.User
-	err := app.DB.FindOne(ctx, UsersCollection, bson.M{
-		"refresh_expiry": bson.M{"$gt": now},
-		"$or": []bson.M{
-			{"refresh_token": hashed},
-			{"refresh_prev": hashed},
+	err := app.DB.FindOne(ctx, UsersCollection, map[string]any{
+		"refresh_expiry": map[string]any{
+			"$gt": now,
+		},
+		"$or": []map[string]any{
+			{
+				"refresh_token": hashed,
+			},
+			{
+				"refresh_prev": hashed,
+			},
 		},
 	}, &user)
 
@@ -93,9 +98,11 @@ func RefreshTokenFromCookie(ctx context.Context, rawToken string, r *http.Reques
 		_ = app.DB.Update(
 			ctx,
 			UsersCollection,
-			bson.M{"userid": user.UserID},
-			bson.M{
-				"$set": bson.M{
+			map[string]any{
+				"userid": user.UserID,
+			},
+			map[string]any{
+				"$set": map[string]any{
 					"refresh_token":  nil,
 					"refresh_prev":   nil,
 					"refresh_expiry": nil,
@@ -115,9 +122,11 @@ func RefreshTokenFromCookie(ctx context.Context, rawToken string, r *http.Reques
 		_ = app.DB.Update(
 			ctx,
 			UsersCollection,
-			bson.M{"userid": user.UserID},
-			bson.M{
-				"$set": bson.M{
+			map[string]any{
+				"userid": user.UserID,
+			},
+			map[string]any{
+				"$set": map[string]any{
 					"refresh_token":  nil,
 					"refresh_prev":   nil,
 					"refresh_expiry": nil,
@@ -159,9 +168,11 @@ func RefreshTokenFromCookie(ctx context.Context, rawToken string, r *http.Reques
 	err = app.DB.Update(
 		ctx,
 		UsersCollection,
-		bson.M{"userid": user.UserID},
-		bson.M{
-			"$set": bson.M{
+		map[string]any{
+			"userid": user.UserID,
+		},
+		map[string]any{
+			"$set": map[string]any{
 				"refresh_prev":   user.RefreshToken,
 				"refresh_token":  hashRefreshToken(newRefresh),
 				"refresh_expiry": now.Add(RefreshTokenTTL),
