@@ -1,57 +1,98 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	STRIPE_WEBHOOK_SECRET string
-	HTTPPort              string
-	AllowedOrigins        []string
-	RTMPIngestURL         string
-	TURNServers           string
-	CDNBaseURL            string
+	StripeWebhookSecret string   `json:"STRIPE_WEBHOOK_SECRET"`
+	HTTPPort            string   `json:"PORT"`
+	AllowedOrigins      []string `json:"ALLOWED_ORIGINS"`
+	RTMPIngestURL       string   `json:"RTMP_INGEST_URL"`
+	TURNServers         string   `json:"TURN_SERVERS"`
+	CDNBaseURL          string   `json:"CDN_BASE_URL"`
+}
+
+var defaultAllowedOrigins = []string{
+	"http://localhost:5173",
+	"https://indium.netlify.app",
 }
 
 func InitConfig() *Config {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found; using system environment")
 	}
+	configURL := mustGetEnv("CONFIG_URL")
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = ":4000"
-	} else if port[0] != ':' {
-		port = ":" + port
+	cfg := mustFetchConfig(configURL)
+
+	cfg.HTTPPort = normalizePort(cfg.HTTPPort)
+
+	if len(cfg.AllowedOrigins) == 0 {
+		cfg.AllowedOrigins = defaultAllowedOrigins
 	}
 
-	allowedOrigins := parseAllowedOrigins(os.Getenv("ALLOWED_ORIGINS"))
+	return cfg
+}
 
-	return &Config{
-		HTTPPort:              port,
-		AllowedOrigins:        allowedOrigins,
-		STRIPE_WEBHOOK_SECRET: os.Getenv("STRIPE_WEBHOOK_SECRET"),
-		RTMPIngestURL:         os.Getenv("RTMP_INGEST_URL"),
-		TURNServers:           os.Getenv("TURN_SERVERS"),
-		CDNBaseURL:            os.Getenv("CDN_BASE_URL"),
+func mustGetEnv(key string) string {
+	value := os.Getenv(key)
+
+	if value == "" {
+		panic(fmt.Sprintf("%s is not set", key))
+	}
+
+	return value
+}
+
+func mustFetchConfig(url string) *Config {
+	client := http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(url)
+	must(err)
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		panic(fmt.Sprintf("unexpected status: %s", resp.Status))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	must(err)
+
+	var cfg Config
+
+	must(json.Unmarshal(body, &cfg))
+
+	return &cfg
+}
+
+func normalizePort(port string) string {
+	switch {
+	case port == "":
+		return ":4000"
+
+	case strings.HasPrefix(port, ":"):
+		return port
+
+	default:
+		return ":" + port
 	}
 }
 
-func parseAllowedOrigins(env string) []string {
-	if env == "" {
-		return []string{"http://localhost:5173", "https://indium.netlify.app"}
+func must(err error) {
+	if err != nil {
+		panic(err)
 	}
-	parts := strings.Split(env, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }
