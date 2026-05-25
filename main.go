@@ -53,6 +53,22 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type Message struct {
+	ID        int64     `json:"id"`
+	RoomID    int64     `json:"room_id"`
+	UserID    int64     `json:"user_id"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type ChatRoom struct {
+	ID        int64          `json:"id"`
+	Name      string         `json:"name"`
+	Members   map[int64]bool `json:"members"`
+	Messages  []Message      `json:"messages"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
 type App struct {
 	router *httprouter.Router
 
@@ -61,14 +77,28 @@ type App struct {
 	nextID  int64
 
 	limiter *RateLimiter
+
+	rooms      map[int64]*ChatRoom
+	roomMux    sync.RWMutex
+	nextRoomID int64
+	nextMsgID  int64
+
+	jwtManager *JWTManager
+	hubs       map[int64]*WSHub
+	hubsMu     sync.RWMutex
 }
 
 func main() {
 	app := &App{
-		router:  httprouter.New(),
-		users:   make(map[int64]User),
-		nextID:  1,
-		limiter: NewRateLimiter(100, time.Minute),
+		router:     httprouter.New(),
+		users:      make(map[int64]User),
+		nextID:     1,
+		rooms:      make(map[int64]*ChatRoom),
+		nextRoomID: 1,
+		nextMsgID:  1,
+		limiter:    NewRateLimiter(100, time.Minute),
+		jwtManager: NewJWTManager("your-secret-key-change-this", 24*time.Hour),
+		hubs:       make(map[int64]*WSHub),
 	}
 
 	app.routes()
@@ -124,10 +154,22 @@ func (a *App) routes() {
 	a.router.PUT("/users/:id", a.wrap(a.updateUser))
 	a.router.DELETE("/users/:id", a.wrap(a.deleteUser))
 
+	// user authentication
+	a.router.POST("/auth/login", a.wrap(a.login))
+
 	// reserved for future chat room support
-	// a.router.POST("/rooms", ...)
-	// a.router.GET("/rooms/:id", ...)
-	// a.router.GET("/ws", ...)
+	a.router.POST("/rooms", a.wrap(a.createRoom))
+	a.router.GET("/rooms", a.wrap(a.listRooms))
+	a.router.GET("/rooms/:id", a.wrap(a.getRoom))
+
+	a.router.POST("/rooms/:id/join", a.wrap(a.joinRoom))
+	a.router.POST("/rooms/:id/leave", a.wrap(a.leaveRoom))
+
+	a.router.POST("/rooms/:id/messages", a.wrap(a.sendMessage))
+	a.router.GET("/rooms/:id/messages", a.wrap(a.getMessages))
+
+	// websocket endpoint (requires token query parameter)
+	a.router.GET("/ws/rooms/:id/chat", a.ServeWS)
 }
 
 func (a *App) middleware(next http.Handler) http.Handler {
@@ -342,6 +384,57 @@ func (a *App) deleteUser(
 
 	writeJSON(w, http.StatusOK, map[string]string{
 		"message": "user deleted",
+	})
+}
+
+func (a *App) login(
+	w http.ResponseWriter,
+	r *http.Request,
+	_ httprouter.Params,
+) {
+	var input struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "invalid json",
+		})
+		return
+	}
+
+	a.userMux.RLock()
+	var user User
+	found := false
+	for _, u := range a.users {
+		if u.Username == input.Username {
+			user = u
+			found = true
+			break
+		}
+	}
+	a.userMux.RUnlock()
+
+	if !found {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{
+			"error": "invalid credentials",
+		})
+		return
+	}
+
+	// Generate JWT token
+	token, err := a.jwtManager.Generate(user.ID, user.Username)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "failed to generate token",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"user":  user,
+		"token": token,
 	})
 }
 
